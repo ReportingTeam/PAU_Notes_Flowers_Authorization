@@ -105,6 +105,10 @@ namespace PAU_Notes_Flowers_Authorization
                     }
                 }
 
+                //remove note id
+                dt.Columns.RemoveAt(0);
+                dt.AcceptChanges();
+
                 //export to excel
                 CF.DataTableToExcel(dt, ws, true, 1, 1);
 
