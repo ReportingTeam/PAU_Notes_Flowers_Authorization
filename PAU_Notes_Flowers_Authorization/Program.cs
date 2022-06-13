@@ -21,9 +21,10 @@ namespace PAU_Notes_Flowers_Authorization
             string strSql = null;
             string strExcelReport = CF.Folder.Reports + "\\PAU_Notes_Flowers_Authorization\\" +
                 "PAU_Notes_Flowers_Authorization_" + DateTime.Now.ToString("yyyy-MM-dd_HHmmss") + ".xlsx";
-            string strStartTime = null;
             string strTemp = null;
+            int intLastFlowersNoteId;
             SqlConnection cnnProductivity = null;
+            SqlCommand cmdProductivity = null;
             SqlDataAdapter daProductivity = null;
             DataTable dt = null;
             DataTable dtTemp = null;
@@ -40,14 +41,6 @@ namespace PAU_Notes_Flowers_Authorization
                 //log start
                 CF.WriteToLog("START", "Report started.", CF.DatabaseName.COMMON);
 
-                //get command line parameter
-                strStartTime = args[0];
-                if (!CF.IsDate(strStartTime))
-                {
-                    throw new Exception("Command line parameter is not a valid time.");
-                }
-                strStartTime = DateTime.Now.ToString("yyyy-MM-dd") + " " + strStartTime;
-
                 //create excel app
                 appExcel = new Excel.Application();
                 Thread.Sleep(1000);
@@ -62,11 +55,17 @@ namespace PAU_Notes_Flowers_Authorization
                 //open connections
                 cnnProductivity = CF.OpenSqlConnectionWithRetry(CF.GetConnectionString(CF.DatabaseName.PRODUCTIVITY), 10);
 
+                //get last note id
+                strSql = "SELECT LASTFLOWERSNOTEID FROM PAU_LAST_FLOWERS_NOTE_ID";
+                daProductivity = new SqlDataAdapter(strSql, cnnProductivity);
+                daProductivity.Fill(dt = new DataTable());
+                intLastFlowersNoteId = Convert.ToInt32(dt.Rows[0]["LASTFLOWERSNOTEID"]);
+
                 //get data
                 strSql =
                     "SELECT " +
 
-                    "ID AS 'Note Id', " +
+                    "ID AS 'NoteId', " +
                     "ACCOUNT AS 'Account', " +
                     "HOSPITALPATIENTNAME AS 'Patient Name', " +
                     "INSURANCETYPE AS 'Insurance Type', " +
@@ -77,11 +76,18 @@ namespace PAU_Notes_Flowers_Authorization
                     "FROM PAU_NOTE " +
 
                     "WHERE " +
-                    "SUBMITTEDDATETIME>'" + strStartTime + "' AND " +
+                    "ID>'" + intLastFlowersNoteId + "' AND " +
                     "FACILITYNUMBER=65 AND " +
-                    "AUTHORIZATIONREQUIRED='Y'";
+                    "AUTHORIZATIONREQUIRED='Y' " +
+                    "ORDER BY ID";
                 daProductivity = new SqlDataAdapter(strSql, cnnProductivity);
                 daProductivity.Fill(dt = new DataTable());
+
+                //get last flowers note id
+                if (dt.Rows.Count > 0) 
+                {
+                    intLastFlowersNoteId = dt.AsEnumerable().Max(x => x.Field<int>("NOTEID"));
+                }
 
                 //add cpt code
                 foreach (DataRow dr in dt.Rows)
@@ -91,7 +97,7 @@ namespace PAU_Notes_Flowers_Authorization
                         "SELECT " +
                         "CPTCODE " +
                         "FROM PAU_CPT_CODE " +
-                        "WHERE NOTEID='" + dr["NOTE ID"].ToString() + "'";
+                        "WHERE NOTEID='" + dr["NOTEID"].ToString() + "'";
                     daProductivity = new SqlDataAdapter(strSql, cnnProductivity);
                     daProductivity.Fill(dtTemp = new DataTable());
                     foreach(DataRow drTemp in dtTemp.Rows)
@@ -118,6 +124,13 @@ namespace PAU_Notes_Flowers_Authorization
                 wb.SaveAs(strExcelReport);
                 wb.Close();
 
+                //update last note id
+                strSql =
+                   "UPDATE PAU_LAST_FLOWERS_NOTE_ID " +
+                   "SET LASTFLOWERSNOTEID=" + intLastFlowersNoteId;
+                cmdProductivity = new SqlCommand(strSql, cnnProductivity);
+                cmdProductivity.ExecuteNonQuery();
+
                 //readonly
                 fi = new System.IO.FileInfo(strExcelReport);
                 fi.IsReadOnly = true;
@@ -133,7 +146,8 @@ namespace PAU_Notes_Flowers_Authorization
                    "@ssc-nashville.com");
 
                 //subject
-                eml.Subject = "PAU Notes Authorization Report for Flowers as of " + strStartTime;
+                eml.Subject = "PAU Notes Authorization Report for Flowers " +
+                    DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
 
                 //body
                 eml.Body = CF.GetEmailMessage("PAU Notes Authorization Report for Flowers", null, null);
