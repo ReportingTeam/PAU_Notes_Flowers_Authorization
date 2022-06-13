@@ -19,7 +19,6 @@ namespace PAU_Notes_Flowers_Authorization
         static void Main(string[] args)
         {
             string strSql = null;
-            string strExcelTemplate = CF.Folder.Excel + "\\PAU_Notes_Flowers_Authorization.xlsx";
             string strExcelReport = CF.Folder.Reports + "\\PAU_Notes_Flowers_Authorization\\" +
                 "PAU_Notes_Flowers_Authorization_" + DateTime.Now.ToString("yyyy-MM-dd_HHmmss") + ".xlsx";
             string strStartTime = null;
@@ -45,7 +44,7 @@ namespace PAU_Notes_Flowers_Authorization
                 strStartTime = args[0];
                 if (!CF.IsDate(strStartTime))
                 {
-                    throw new Exception("Second command line parameter is not a valid time.");
+                    throw new Exception("Command line parameter is not a valid time.");
                 }
                 strStartTime = DateTime.Now.ToString("yyyy-MM-dd") + " " + strStartTime;
 
@@ -134,7 +133,7 @@ namespace PAU_Notes_Flowers_Authorization
                    "@ssc-nashville.com");
 
                 //subject
-                eml.Subject = "PAU Notes Authorization Report for Flowers " + DateTime.Now.ToString("yyyy-MM-dd");
+                eml.Subject = "PAU Notes Authorization Report for Flowers as of " + strStartTime;
 
                 //body
                 eml.Body = CF.GetEmailMessage("PAU Notes Authorization Report for Flowers", null, null);
